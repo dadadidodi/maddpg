@@ -184,7 +184,8 @@ class MADDPGAgentTrainer(AgentTrainer):
     def debuginfo(self):
         return {'name': self.name, 'index': self.agent_index,
                 'policy_name': self.policy_name, 'adversarial': self.adversarial,
-                'action_space': self.act_space_n, 'local_q_func':self.local_q_func}
+                'local_q_func':self.local_q_func,
+                'adv_eps': self.args.adv_eps}
 
     def action(self, obs):
         return self.act(obs[None])[0]
