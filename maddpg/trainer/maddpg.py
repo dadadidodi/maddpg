@@ -110,7 +110,7 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, grad_norm_cl
         return train, update_target_q, {'q_values': q_values, 'target_q_values': target_q_values}
 
 class MADDPGAgentTrainer(AgentTrainer):
-    def __init__(self, name, model, obs_shape_n, act_space_n, agent_index, args, local_q_func=False):
+    def __init__(self, name, model, obs_shape_n, act_space_n, agent_index, args, local_q_func, policy_name, adversarial):
         self.name = name
         self.n = len(obs_shape_n)
         self.agent_index = agent_index
@@ -121,7 +121,7 @@ class MADDPGAgentTrainer(AgentTrainer):
 
         # Create all the functions necessary to train the model
         self.q_train, self.q_update, self.q_debug = q_train(
-            scope=self.name,
+            scope=self.name+"_"+policy_name,
             make_obs_ph_n=obs_ph_n,
             act_space_n=act_space_n,
             q_index=agent_index,
@@ -132,7 +132,7 @@ class MADDPGAgentTrainer(AgentTrainer):
             num_units=args.num_units
         )
         self.act, self.p_train, self.p_update, self.p_debug = p_train(
-            scope=self.name,
+            scope=self.name+"_"+policy_name,
             make_obs_ph_n=obs_ph_n,
             act_space_n=act_space_n,
             p_index=agent_index,
@@ -147,6 +147,14 @@ class MADDPGAgentTrainer(AgentTrainer):
         self.replay_buffer = ReplayBuffer(1e6)
         self.max_replay_buffer_len = args.batch_size * args.max_episode_len
         self.replay_sample_index = None
+        self.policy_name = policy_name
+        self.adversarial = adversarial
+        self.act_space_n = act_space_n
+        self.local_q_func = local_q_func
+    def debuginfo(self):
+        return {'name': self.name, 'index': self.agent_index,
+                'policy_name': self.policy_name, 'adversarial': self.adversarial,
+                'action_space': self.act_space_n, 'local_q_func':self.local_q_func}
 
     def action(self, obs):
         return self.act(obs[None])[0]
