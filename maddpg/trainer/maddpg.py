@@ -45,8 +45,10 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, grad
         act_sample = act_pd.sample()
         p_reg = tf.reduce_mean(tf.square(act_pd.flatparam()))
 
-        act_input_n = act_ph_n + []
-        act_input_n[p_index] = act_pd.sample()
+        act_input_logits_n = act_ph_n + []
+        act_input_logits_n[p_index] = act_pd.sample()
+        act_input_n = [U.softmax(lg, axis=-1) for lg in act_input_logits_n]
+
         q_input = tf.concat(obs_ph_n + act_input_n, 1)
         if local_q_func:
             q_input = tf.concat([obs_ph_n[p_index], act_input_n[p_index]], 1)
@@ -82,9 +84,10 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, grad_norm_cl
         act_ph_n = [act_pdtype_n[i].sample_placeholder([None], name="action"+str(i)) for i in range(len(act_space_n))]
         target_ph = tf.placeholder(tf.float32, [None], name="target")
 
-        q_input = tf.concat(obs_ph_n + act_ph_n, 1)
+        act_input_n = [U.softmax(lg, axis=-1) for lg in act_ph_n]
+        q_input = tf.concat(obs_ph_n + act_input_n, 1)
         if local_q_func:
-            q_input = tf.concat([obs_ph_n[q_index], act_ph_n[q_index]], 1)
+            q_input = tf.concat([obs_ph_n[q_index], act_input_n[q_index]], 1)
         q = q_func(q_input, 1, scope="q_func", num_units=num_units)[:,0]
         q_func_vars = U.scope_vars(U.absolute_scope_name("q_func"))
 

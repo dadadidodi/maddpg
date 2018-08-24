@@ -12,6 +12,10 @@ import maddpg.common.tf_util as U
 from maddpg.trainer.maddpg import MADDPGAgentTrainer
 import tensorflow.contrib.layers as layers
 
+def mysoftmax(a):
+    a=np.exp(a-np.max(a))
+    return a/max(np.sum(a),1e-9)
+
 def parse_args():
     parser = argparse.ArgumentParser("Reinforcement Learning experiments for multiagent environments")
     # Environment
@@ -124,7 +128,7 @@ def train(arglist):
                     # get action
                     action_n = [agent.action(obs) for agent, obs in zip(trainers[turn],obs_n[turn])]
                     # environment step
-                    new_obs_n, rew_n, done_n, info_n = env[turn].step(action_n)
+                    new_obs_n, rew_n, done_n, info_n = env[turn].step([mysoftmax(elem) for elem in action_n])
                     episode_step[turn] += 1
                     done = all(done_n)
                     terminal = (episode_step[turn] >= arglist.max_episode_len)
