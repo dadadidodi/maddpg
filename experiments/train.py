@@ -189,7 +189,7 @@ def train(arglist):
                         for rew in agent_rewards[turn]:
                             final_ep_ag_rewards[turn].append(np.mean(rew[-arglist.save_rate:]))
                         break
-            U.save_state(arglist.save_dir, saver=saver)
+            U.save_state(arglist.save_dir, global_step = len(episode_rewards[0]), saver=saver)
             # saves final episode reward for plotting training curve later
             if len(episode_rewards[0]) > arglist.num_episodes:
                 rew_file_name = arglist.plots_dir + arglist.exp_name + '_rewards.pkl'
