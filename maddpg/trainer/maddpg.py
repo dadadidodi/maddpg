@@ -154,6 +154,7 @@ class MADDPGAgentTrainer(AgentTrainer):
         self.adversarial = adversarial
         self.act_space_n = act_space_n
         self.local_q_func = local_q_func
+
     def debuginfo(self):
         return {'name': self.name, 'index': self.agent_index,
                 'policy_name': self.policy_name, 'adversarial': self.adversarial,
