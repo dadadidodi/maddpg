@@ -125,7 +125,7 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, adversarial,
                     else act_ph_n[i] for i in range(len(act_ph_n))]
             new_act_n = [U.softmax(lg, axis = -1) for lg in new_act_logits_n]
             adv_q_input = tf.concat(obs_ph_n + new_act_n, 1)
-            target_q = q_func(adv_q_input, 1, scope ='q_func', reuse=True, num_units=num_units)[:,0]
+            target_q = q_func(adv_q_input, 1, scope ='target_q_func', reuse=True, num_units=num_units)[:,0]
 
         target_q_func_vars = U.scope_vars(U.absolute_scope_name("target_q_func"))
         update_target_q = make_update_exp(q_func_vars, target_q_func_vars)
