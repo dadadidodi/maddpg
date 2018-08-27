@@ -12,6 +12,9 @@ import maddpg.common.tf_util as U
 from maddpg.trainer.maddpg import MADDPGAgentTrainer
 import tensorflow.contrib.layers as layers
 from train import mysoftmax
+np.random.seed(11)
+import random
+random.seed(17)
 
 def parse_args():
     parser = argparse.ArgumentParser("Reinforcement Learning experiments for multiagent environments")
@@ -62,6 +65,7 @@ def make_env(scenario_name, arglist, benchmark=False):
     scenario = scenarios.load(scenario_name + ".py").Scenario()
     # create world
     world = scenario.make_world()
+    print([agent.adversary for agent in world.agents])
     # create multiagent environment
     if benchmark:
         env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, scenario.benchmark_data)
@@ -99,15 +103,16 @@ def test(arglist):
         assert(len(names) == num_env)
         assert(len(noise_on) == num_env)
         trainers = [get_trainers(env, num_adversaries, obs_shape_n[i], arglist, names[i], noise_on[i]) for i in range(num_env)]
+        '''
         for idx in range(num_env):
             print("PolicyName: {}\n       Env: {}\n   Trainer: {}".format(names[idx], env, [trainer.debuginfo() for trainer in trainers[idx]]))
-
+        '''
         trainers = [trainers[names2id[arglist.adversary]][idx] if idx < arglist.num_adversaries 
                     else trainers[names2id[arglist.normal]][idx] for idx in range(env.n)]
-        print("*"*40)
-        print("*"+' '*38 + "*")
-        print("*"*40)
-        print("PolicyName: {}\n       Env: {}\n   Trainer: {}".format(names[idx], env, [trainer.debuginfo() for trainer in trainers]))
+        print("*"*100)
+        print("*"+' '*98 + "*")
+        print("*"*100)
+        print("Env: {}\n   Trainer: {}".format(env, [trainer.debuginfo() for trainer in trainers]))
 
 
         # Initialize
@@ -179,31 +184,33 @@ def test(arglist):
                 continue
 
             # update all trainers, if not in display or benchmark mode
+            '''
             loss = None
-            for agent in trainers[turn]:
+            for agent in trainers:
                 agent.preupdate()
-            for agent in trainers[turn]:
+            for agent in trainers:
                 loss = agent.update(trainers[turn], train_step[turn])
-
+            '''
             # do not save model, display training output
-            if terminal and (len(episode_rewards[turn]) % arglist.save_rate == 0):
+            if terminal and (len(episode_rewards) % arglist.save_rate == 0):
                 # print statement depends on whether or not there are adversaries
                 if num_adversaries == 0:
-                    print("policy: {:8s}, steps: {}, episodes: {}, mean episode reward: {:4.3f}, time: {}".format(names[turn],
-                        train_step[turn], len(episode_rewards[turn]), np.mean(episode_rewards[turn][-arglist.save_rate:]), round(time.time()-t_start, 3)))
+                    print("{:8s} vs {:8s}, steps: {}, episodes: {}, mean episode reward: {:4.3f}, time: {}".format(arglist.adversary, arglist.normal,
+                        train_step, len(episode_rewards), np.mean(episode_rewards[-arglist.save_rate:]), round(time.time()-t_start, 3)))
                 else:
-                    print("policy: {:8s}, steps: {}, episodes: {}, mean episode reward: {:4.3f}, agent episode reward: {}, time: {}".format(names[turn],
-                        train_step[turn], len(episode_rewards[turn]), np.mean(episode_rewards[turn][-arglist.save_rate:]),
-                        [np.mean(rew[-arglist.save_rate:]) for rew in agent_rewards[turn]], round(time.time()-t_start, 3)))
+                    print("{:8s} vs {:8s}, steps: {}, episodes: {}, mean episode reward: {:4.3f}, agent episode reward: {}, time: {}".format(arglist.adversary,arglist.normal,
+                        train_step, len(episode_rewards), np.mean(episode_rewards[-arglist.save_rate:]),
+                        [np.mean(rew[-arglist.save_rate:]) for rew in agent_rewards], round(time.time()-t_start, 3)))
                 t_start = time.time()
+                print(len(agent_rewards[0][-arglist.save_rate:]),len(episode_rewards[-arglist.save_rate:]), len(episode_rewards), len(agent_rewards[0]) )
                 # Keep track of final episode reward
-                final_ep_rewards[turn].append(np.mean(episode_rewards[turn][-arglist.save_rate:]))
-                for rew in agent_rewards[turn]:
-                    final_ep_ag_rewards[turn].append(np.mean(rew[-arglist.save_rate:]))
-                break
-            
+                final_ep_rewards.append(np.mean(episode_rewards[-arglist.save_rate:]))
+                for rew in agent_rewards:
+                    final_ep_ag_rewards.append(np.mean(rew[-arglist.save_rate:]))
+
             # saves final episode reward for plotting training curve later
-            if len(episode_rewards[0]) > arglist.num_episodes:
+            if len(episode_rewards) >= arglist.num_episodes:
+                break
                 rew_file_name = arglist.plots_dir + arglist.exp_name + '_rewards_test.pkl'
                 if not os.path.exists(os.path.dirname(rew_file_name)):
                     try:
