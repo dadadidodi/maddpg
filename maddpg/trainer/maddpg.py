@@ -25,7 +25,7 @@ def make_update_exp(vals, target_vals):
     expression = tf.group(*expression)
     return U.function([], [], updates=[expression])
 
-def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, adversarial, adv_eps, grad_norm_clipping=None, local_q_func=False, num_units=64, scope="trainer", reuse=None):
+def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, adversarial, adv_eps, adv_eps_s, num_adversaries, grad_norm_clipping=None, local_q_func=False, num_units=64, scope="trainer", reuse=None):
     with tf.variable_scope(scope, reuse=reuse):
         # create distribtuions
         act_pdtype_n = [make_pdtype(act_space) for act_space in act_space_n]
@@ -56,9 +56,15 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, adve
         pg_loss = -tf.reduce_mean(q)
 
         if adversarial:
-            print("  adversarial training mode ", p_index, adv_eps)
+            num_agents = len(act_input_logits_n)
+            if p_index < num_adversaries:
+                adv_rate = [adv_eps_s *(i < num_adversaries) + adv_eps * (i >= num_adversaries) for i in range(num_agents)]
+            else:
+                adv_rate = [adv_eps_s *(i >= num_adversaries) + adv_eps * (i < num_adversaries) for i in range(num_agents)]
+            print("      adv rate for p_index : ", p_index, adv_rate)
             raw_perturb = tf.gradients(pg_loss, act_input_logits_n)
-            perturb = [adv_eps * tf.stop_gradient(tf.nn.l2_normalize(elem, axis = 1)) for elem in raw_perturb]
+            perturb = [tf.stop_gradient(tf.nn.l2_normalize(elem, axis = 1)) for elem in raw_perturb]
+            perturb = [perturb[i] * adv_rate[i] for i in range(num_agents)]
             new_act_input_logits_n = [perturb[i] + act_input_logits_n[i] if i != p_index
                     else act_input_logits_n[i] for i in range(len(act_input_logits_n))]
             new_act_n = [U.softmax(lg, axis = -1) for lg in new_act_input_logits_n]
@@ -85,7 +91,7 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, adve
 
         return act, train, update_target_p, {'p_values': p_values, 'target_act': target_act}
 
-def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, adversarial, adv_eps, grad_norm_clipping=None, local_q_func=False, scope="trainer", reuse=None, num_units=64):
+def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, adversarial, adv_eps, adv_eps_s, num_adversaries, grad_norm_clipping=None, local_q_func=False, scope="trainer", reuse=None, num_units=64):
     with tf.variable_scope(scope, reuse=reuse):
         # create distribtuions
         act_pdtype_n = [make_pdtype(act_space) for act_space in act_space_n]
@@ -118,6 +124,13 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, adversarial,
         target_q = q_func(q_input, 1, scope="target_q_func", num_units=num_units)[:,0]
 
         if adversarial:
+            num_agents = len(act_ph_n)
+            if q_index < num_adversaries:
+                adv_rate = [adv_eps_s *(i < num_adversaries) + adv_eps * (i >= num_adversaries) for i in range(num_agents)]
+            else:
+                adv_rate = [adv_eps_s *(i >= num_adversaries) + adv_eps * (i < num_adversaries) for i in range(num_agents)]
+            print("      adv rate for q_index : ", q_index, adv_rate)
+
             pg_loss = -tf.reduce_mean(target_q)
             raw_perturb = tf.gradients(pg_loss, act_ph_n)
             perturb = [adv_eps * tf.stop_gradient(tf.nn.l2_normalize(elem, axis = 1)) for elem in raw_perturb]
@@ -154,6 +167,8 @@ class MADDPGAgentTrainer(AgentTrainer):
             optimizer=tf.train.AdamOptimizer(learning_rate=args.lr),
             adversarial = adversarial,
             adv_eps = args.adv_eps,
+            adv_eps_s = args.adv_eps_s,
+            num_adversaries = args.num_adversaries,
             grad_norm_clipping=0.5,
             local_q_func=local_q_func,
             num_units=args.num_units
@@ -168,6 +183,8 @@ class MADDPGAgentTrainer(AgentTrainer):
             optimizer=tf.train.AdamOptimizer(learning_rate=args.lr),
             adversarial = adversarial,
             adv_eps = args.adv_eps,
+            adv_eps_s = args.adv_eps_s,
+            num_adversaries = args.num_adversaries,
             grad_norm_clipping=0.5,
             local_q_func=local_q_func,
             num_units=args.num_units
