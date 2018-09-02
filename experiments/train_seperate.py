@@ -3,10 +3,20 @@ import numpy as np
 import tensorflow as tf
 import time
 import pickle
+import sys
+import os
+
+sys.path.append('../')
+sys.path.append('../../')
+sys.path.append('../../../')
 
 import maddpg.common.tf_util as U
 from maddpg.trainer.maddpg import MADDPGAgentTrainer
 import tensorflow.contrib.layers as layers
+
+def mysoftmax(a):
+    a=np.exp(a-np.max(a))
+    return a/max(np.sum(a),1e-9)
 
 def parse_args():
     parser = argparse.ArgumentParser("Reinforcement Learning experiments for multiagent environments")
@@ -22,6 +32,8 @@ def parse_args():
     parser.add_argument("--gamma", type=float, default=0.95, help="discount factor")
     parser.add_argument("--batch-size", type=int, default=1024, help="number of episodes to optimize at the same time")
     parser.add_argument("--num-units", type=int, default=64, help="number of units in the mlp")
+    parser.add_argument("--adv-eps", type=float, default=1e-3, help="adversarial training rate")
+    parser.add_argument("--adv-eps-s", type=float, default=1e-5, help="small adversarial training rate")
     # Checkpointing
     parser.add_argument("--exp-name", type=str, default=None, help="name of the experiment")
     parser.add_argument("--save-dir", type=str, default="/tmp/policy/", help="directory in which training state and model should be saved")
@@ -65,13 +77,15 @@ def get_trainers(env, num_adversaries, obs_shape_n, arglist):
     model = mlp_model
     trainer = MADDPGAgentTrainer
     for i in range(num_adversaries):
+        policy_name = arglist.adv_policy
         trainers.append(trainer(
             "agent_%d" % i, model, obs_shape_n, env.action_space, i, arglist,
-            local_q_func=(arglist.adv_policy=='ddpg')))
+            policy_name == 'ddpg', policy_name, policy_name == 'mmmaddpg'))
     for i in range(num_adversaries, env.n):
+        policy_name = arglist.good_policy
         trainers.append(trainer(
             "agent_%d" % i, model, obs_shape_n, env.action_space, i, arglist,
-            local_q_func=(arglist.good_policy=='ddpg')))
+            policy_name == 'ddpg', policy_name, policy_name == 'mmmaddpg'))
     return trainers
 
 
@@ -111,7 +125,7 @@ def train(arglist):
             # get action
             action_n = [agent.action(obs) for agent, obs in zip(trainers,obs_n)]
             # environment step
-            new_obs_n, rew_n, done_n, info_n = env.step(action_n)
+            new_obs_n, rew_n, done_n, info_n = env.step([mysoftmax(elem) for elem in action_n])
             episode_step += 1
             done = all(done_n)
             terminal = (episode_step >= arglist.max_episode_len)
