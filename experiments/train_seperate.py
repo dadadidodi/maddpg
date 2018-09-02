@@ -176,7 +176,7 @@ def train(arglist):
 
             # save model, display training output
             if terminal and (len(episode_rewards) % arglist.save_rate == 0):
-                U.save_state(arglist.save_dir, saver=saver)
+                U.save_state(arglist.save_dir, global_step = len(episode_rewards), saver=saver)
                 # print statement depends on whether or not there are adversaries
                 if num_adversaries == 0:
                     print("steps: {}, episodes: {}, mean episode reward: {}, time: {}".format(
@@ -194,6 +194,12 @@ def train(arglist):
             # saves final episode reward for plotting training curve later
             if len(episode_rewards) > arglist.num_episodes:
                 rew_file_name = arglist.plots_dir + arglist.exp_name + '_rewards.pkl'
+                if not os.path.exists(os.path.dirname(rew_file_name)):
+                    try:
+                        os.makedirs(os.path.dirname(rew_file_name))
+                    except OSError as exc:
+                        if exc.errno != errno.EEXIST:
+                            raise
                 with open(rew_file_name, 'wb') as fp:
                     pickle.dump(final_ep_rewards, fp)
                 agrew_file_name = arglist.plots_dir + arglist.exp_name + '_agrewards.pkl'

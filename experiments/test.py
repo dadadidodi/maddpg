@@ -122,7 +122,7 @@ def test(arglist):
         # Load previous results, if necessary
         if arglist.load_dir == "":
             arglist.load_dir = arglist.save_dir
-        if arglist.display or arglist.restore or arglist.benchmark:
+        if arglist.display or arglist.restore or arglist.benchmark or arglist.test:
             print('Loading previous state from %s'%arglist.load_dir)
             U.load_state(arglist.load_dir)
 
