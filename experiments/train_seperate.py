@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument("--num-episodes", type=int, default=60000, help="number of episodes")
     parser.add_argument("--num-adversaries", type=int, default=0, help="number of adversaries")
     parser.add_argument("--good-policy", type=str, default="maddpg", help="policy for good agents")
-    parser.add_argument("--adv-policy", type=str, default="maddpg", help="policy of adversaries")
+    parser.add_argument("--bad-policy", type=str, default="maddpg", help="policy of adversaries")
     # Core training parameters
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate for Adam optimizer")
     parser.add_argument("--gamma", type=float, default=0.95, help="discount factor")
@@ -38,8 +38,11 @@ def parse_args():
     parser.add_argument("--exp-name", type=str, default=None, help="name of the experiment")
     parser.add_argument("--save-dir", type=str, default="/tmp/policy/", help="directory in which training state and model should be saved")
     parser.add_argument("--save-rate", type=int, default=1000, help="save model once every time this many episodes are completed")
-    parser.add_argument("--load-dir", type=str, default="", help="directory in which training state and model are loaded")
+    parser.add_argument("--load-name", type=str, default="", help="name of which training state and model are loaded, leave blank to load seperately")
+    parser.add_argument("--load-good", type=str, default="", help="which good policy to load")
+    parser.add_argument("--load-bad", type=str, default="", help="which bad policy to load")
     # Evaluation
+    parser.add_argument("--test", action="store_true", default=False)
     parser.add_argument("--restore", action="store_true", default=False)
     parser.add_argument("--display", action="store_true", default=False)
     parser.add_argument("--benchmark", action="store_true", default=False)
@@ -77,7 +80,7 @@ def get_trainers(env, num_adversaries, obs_shape_n, arglist):
     model = mlp_model
     trainer = MADDPGAgentTrainer
     for i in range(num_adversaries):
-        policy_name = arglist.adv_policy
+        policy_name = arglist.bad_policy
         trainers.append(trainer(
             "agent_%d" % i, model, obs_shape_n, env.action_space, i, arglist,
             policy_name == 'ddpg', policy_name, policy_name == 'mmmaddpg'))
@@ -97,17 +100,29 @@ def train(arglist):
         obs_shape_n = [env.observation_space[i].shape for i in range(env.n)]
         num_adversaries = min(env.n, arglist.num_adversaries)
         trainers = get_trainers(env, num_adversaries, obs_shape_n, arglist)
-        print('Using good policy {} and adv policy {}'.format(arglist.good_policy, arglist.adv_policy))
+        print('Using good policy {} and bad policy {}'.format(arglist.good_policy, arglist.bad_policy))
 
         # Initialize
         U.initialize()
 
         # Load previous results, if necessary
-        if arglist.load_dir == "":
-            arglist.load_dir = arglist.save_dir
-        if arglist.display or arglist.restore or arglist.benchmark:
-            print('Loading previous state...')
-            U.load_state(arglist.load_dir)
+        if arglist.test or arglist.display or arglist.restore or arglist.benchmark:
+            if arglist.load_name == "":
+                # load seperately
+                bad_var_list = []
+                for i in range(num_adversaries):
+                    bad_var_list += tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=trainers[i].scope)
+                saver = tf.train.Saver(bad_var_list)
+                U.load_state(arglist.load_bad, saver)
+
+                good_var_list = []
+                for i in range(num_adversaries, env.n):
+                    good_var_list += tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=trainers[i].scope)
+                saver = tf.train.Saver(good_var_list)
+                U.load_state(arglist.load_good, saver)
+            else:
+                print('Loading previous state from {}'.format(arglist.load_name))
+                U.load_state(arglist.load_name)
 
         episode_rewards = [0.0]  # sum of rewards for all agents
         agent_rewards = [[0.0] for _ in range(env.n)]  # individual agent reward
@@ -168,11 +183,12 @@ def train(arglist):
                 continue
 
             # update all trainers, if not in display or benchmark mode
-            loss = None
-            for agent in trainers:
-                agent.preupdate()
-            for agent in trainers:
-                loss = agent.update(trainers, train_step)
+            if not arglist.test:
+                loss = None
+                for agent in trainers:
+                    agent.preupdate()
+                for agent in trainers:
+                    loss = agent.update(trainers, train_step)
 
             # save model, display training output
             if terminal and (len(episode_rewards) % arglist.save_rate == 0):
@@ -193,16 +209,19 @@ def train(arglist):
 
             # saves final episode reward for plotting training curve later
             if len(episode_rewards) > arglist.num_episodes:
-                rew_file_name = arglist.plots_dir + arglist.exp_name + '_rewards.pkl'
+                suffix = '_test.pkl' if arglist.test else '.pkl'
+                rew_file_name = arglist.plots_dir + arglist.exp_name + '_rewards' + suffix
+                agrew_file_name = arglist.plots_dir + arglist.exp_name + '_agrewards' + suffix
+
                 if not os.path.exists(os.path.dirname(rew_file_name)):
                     try:
                         os.makedirs(os.path.dirname(rew_file_name))
                     except OSError as exc:
                         if exc.errno != errno.EEXIST:
                             raise
+
                 with open(rew_file_name, 'wb') as fp:
                     pickle.dump(final_ep_rewards, fp)
-                agrew_file_name = arglist.plots_dir + arglist.exp_name + '_agrewards.pkl'
                 with open(agrew_file_name, 'wb') as fp:
                     pickle.dump(final_ep_ag_rewards, fp)
                 print('...Finished total of {} episodes.'.format(len(episode_rewards)))
