@@ -150,6 +150,7 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, adversarial,
 class MADDPGAgentTrainer(AgentTrainer):
     def __init__(self, name, model, obs_shape_n, act_space_n, agent_index, args, local_q_func, policy_name, adversarial):
         self.name = name
+        self.scope = self.name + "_" + policy_name
         self.n = len(obs_shape_n)
         self.agent_index = agent_index
         self.args = args
@@ -159,7 +160,7 @@ class MADDPGAgentTrainer(AgentTrainer):
 
         # Create all the functions necessary to train the model
         self.q_train, self.q_update, self.q_debug = q_train(
-            scope=self.name+"_"+policy_name,
+            scope=self.scope,
             make_obs_ph_n=obs_ph_n,
             act_space_n=act_space_n,
             q_index=agent_index,
@@ -174,7 +175,7 @@ class MADDPGAgentTrainer(AgentTrainer):
             num_units=args.num_units
         )
         self.act, self.p_train, self.p_update, self.p_debug = p_train(
-            scope=self.name+"_"+policy_name,
+            scope=self.scope,
             make_obs_ph_n=obs_ph_n,
             act_space_n=act_space_n,
             p_index=agent_index,
@@ -199,7 +200,7 @@ class MADDPGAgentTrainer(AgentTrainer):
         self.local_q_func = local_q_func
 
     def debuginfo(self):
-        return {'name': self.name, 'index': self.agent_index,
+        return {'name': self.name, 'index': self.agent_index, 'scope': self.scope,
                 'policy_name': self.policy_name, 'adversarial': self.adversarial,
                 'local_q_func':self.local_q_func,
                 'adv_eps': self.args.adv_eps}
