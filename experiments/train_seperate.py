@@ -80,11 +80,13 @@ def get_trainers(env, num_adversaries, obs_shape_n, arglist):
     model = mlp_model
     trainer = MADDPGAgentTrainer
     for i in range(num_adversaries):
+        print("{} bad agents".format(i))
         policy_name = arglist.bad_policy
         trainers.append(trainer(
             "agent_%d" % i, model, obs_shape_n, env.action_space, i, arglist,
             policy_name == 'ddpg', policy_name, policy_name == 'mmmaddpg'))
     for i in range(num_adversaries, env.n):
+        print("{} good agents".format(i))
         policy_name = arglist.good_policy
         trainers.append(trainer(
             "agent_%d" % i, model, obs_shape_n, env.action_space, i, arglist,
@@ -93,6 +95,8 @@ def get_trainers(env, num_adversaries, obs_shape_n, arglist):
 
 
 def train(arglist):
+    if arglist.test:
+        np.random.seed(71)
     with U.single_threaded_session():
         # Create environment
         env = make_env(arglist.scenario, arglist, arglist.benchmark)
@@ -100,7 +104,7 @@ def train(arglist):
         obs_shape_n = [env.observation_space[i].shape for i in range(env.n)]
         num_adversaries = min(env.n, arglist.num_adversaries)
         trainers = get_trainers(env, num_adversaries, obs_shape_n, arglist)
-        print('Using good policy {} and bad policy {}'.format(arglist.good_policy, arglist.bad_policy))
+        print('Using good policy {} and bad policy {} with {} adversaries'.format(arglist.good_policy, arglist.bad_policy, num_adversaries))
 
         # Initialize
         U.initialize()
@@ -198,7 +202,7 @@ def train(arglist):
                     print("steps: {}, episodes: {}, mean episode reward: {}, time: {}".format(
                         train_step, len(episode_rewards), np.mean(episode_rewards[-arglist.save_rate:]), round(time.time()-t_start, 3)))
                 else:
-                    print("steps: {}, episodes: {}, mean episode reward: {}, agent episode reward: {}, time: {}".format(
+                    print("{} vs {} steps: {}, episodes: {}, mean episode reward: {}, agent episode reward: {}, time: {}".format(arglist.bad_policy, arglist.good_policy,
                         train_step, len(episode_rewards), np.mean(episode_rewards[-arglist.save_rate:]),
                         [np.mean(rew[-arglist.save_rate:]) for rew in agent_rewards], round(time.time()-t_start, 3)))
                 t_start = time.time()
