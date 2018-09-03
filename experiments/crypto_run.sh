@@ -1,0 +1,5 @@
+#!/bin/bash
+python3 train_seperate.py --scenario simple_crypto  --num-adversaries 1 --save-dir './crypto_checkpoints_e11/' --exp-name crypto_e11 --adv-eps 1e-1  --adv-eps-s 1e-1   --good-policy mmmaddpg --adv-policy mmmaddpg --save-rate 2500 --num-episodes 150000 
+python3 train_seperate.py --scenario simple_crypto  --num-adversaries 1 --save-dir './crypto_checkpoints_e12/' --exp-name crypto_e12 --adv-eps 1e-1  --adv-eps-s 1e-2  --good-policy mmmaddpg --adv-policy mmmaddpg --save-rate 2500 --num-episodes 150000 
+python3 train_seperate.py --scenario simple_crypto  --num-adversaries 1 --save-dir './crypto_checkpoints_e23/' --exp-name crypto_e23 --adv-eps 1e-2  --adv-eps-s 1e-3  --good-policy mmmaddpg --adv-policy mmmaddpg --save-rate 2500 --num-episodes 150000
+python3 train_seperate.py --scenario simple_crypto --num-adversaries 1 --save-dir './crypto_checkpoints_maddpg/' --exp-name crypto_maddpg --adv-eps 0 --adv-eps-s 0 --good-policy maddpg --adv-policy maddpg --save-rate 2500 --num-episodes 150000 
