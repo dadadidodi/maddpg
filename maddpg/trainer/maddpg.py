@@ -217,6 +217,14 @@ class MADDPGAgentTrainer(AgentTrainer):
         self.replay_sample_index = None
 
     def update(self, agents, t):
+        current_agents = []
+        for i in agents:
+            agent = i
+            if isinstance(i, MADDPGAgentTrainerEnsembleWrapper):
+                agent = i.current
+            current_agents.append(agent)
+        agents = current_agents
+
         agent_replay_buffer = self.replay_buffers[self.agent_index]
         if len(agent_replay_buffer) < self.max_replay_buffer_len: # replay buffer is not large enough
             return
@@ -267,6 +275,9 @@ class MADDPGAgentTrainerEnsembleWrapper:
                 agent_index, args, local_q_func, copy_name, adversarial))
         self.current = self.copies[0]
 
+        # prefix of all copies
+        self.scope = self.current.scope
+
     def sample_trainer(self):
         self.current = self.copies[np.random.randint(self.num_copies)]
 
@@ -283,10 +294,4 @@ class MADDPGAgentTrainerEnsembleWrapper:
         self.current.preupdate()
 
     def update(self, agents, t):
-        current_agents = []
-        for i in agents:
-            agent = i
-            if isinstance(i, MADDPGAgentTrainerEnsembleWrapper):
-                agent = i.current
-            current_agents.append(agent)
-        self.current.update(current_agents, t)
+        self.current.update(agents, t)

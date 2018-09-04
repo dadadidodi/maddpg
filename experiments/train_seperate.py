@@ -114,7 +114,8 @@ def train(arglist):
         obs_shape_n = [env.observation_space[i].shape for i in range(env.n)]
         num_adversaries = min(env.n, arglist.num_adversaries)
         trainers = get_trainers(env, num_adversaries, obs_shape_n, arglist)
-        print('Using bad policy {} and good policy {} with {} adversaries'.format(arglist.bad_policy, arglist.good_policy, num_adversaries))
+        print('Using bad policy {} ({} copies) and good policy {} ({} copies) with {} adversaries'.format(
+            arglist.bad_policy, arglist.bad_ensemble, arglist.good_policy, arglist.good_ensemble, num_adversaries))
 
         # Initialize
         U.initialize()
