@@ -251,3 +251,40 @@ class MADDPGAgentTrainer(AgentTrainer):
         self.q_update()
 
         return [q_loss, p_loss, np.mean(target_q), np.mean(rew), np.mean(target_q_next), np.std(target_q)]
+
+class MADDPGAgentTrainerEnsembleWrapper:
+    def __init__(self, name, model, obs_shape_n, act_space_n, agent_index,
+            args, local_q_func, policy_name, adversarial, num_copies=1):
+        self.num_copies = num_copies
+        self.copies = []
+        for i in range(num_copies):
+            copy_name = policy_name
+            if i > 0:
+                copy_name += '_{}'.format(i)
+            self.copies.append(MADDPGAgentTrainer(name, model, obs_shape_n, act_space_n, 
+                agent_index, args, local_q_func, copy_name, adversarial))
+        self.current = self.copies[0]
+
+    def sample_trainer(self):
+        self.current = self.copies[np.random.randint(self.num_copies)]
+
+    def debuginfo(self):
+        return self.current.debuginfo()
+
+    def action(self, obs):
+        return self.current.action(obs)
+
+    def experience(self, obs, act, rew, new_obs, done, terminal):
+        self.current.experience(obs, act, rew, new_obs, done, terminal)
+
+    def preupdate(self):
+        self.current.preupdate()
+
+    def update(self, agents, t):
+        current_agents = []
+        for i in agents:
+            agent = i
+            if isinstance(i, MADDPGAgentTrainerEnsembleWrapper):
+                agent = i.current
+            current_agents.append(agent)
+        self.current.update(current_agents, t)

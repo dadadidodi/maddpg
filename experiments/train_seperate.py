@@ -5,13 +5,14 @@ import time
 import pickle
 import sys
 import os
+import functools
 
 sys.path.append('../')
 sys.path.append('../../')
 sys.path.append('../../../')
 
 import maddpg.common.tf_util as U
-from maddpg.trainer.maddpg import MADDPGAgentTrainer
+from maddpg.trainer.maddpg import MADDPGAgentTrainer, MADDPGAgentTrainerEnsembleWrapper
 import tensorflow.contrib.layers as layers
 
 def mysoftmax(a):
@@ -27,6 +28,9 @@ def parse_args():
     parser.add_argument("--num-adversaries", type=int, default=0, help="number of adversaries")
     parser.add_argument("--good-policy", type=str, default="maddpg", help="policy for good agents")
     parser.add_argument("--bad-policy", type=str, default="maddpg", help="policy of adversaries")
+    parser.add_argument("--good-ensemble", type=int, default=1, help="number of copies for each good agent")
+    parser.add_argument("--bad-ensemble", type=int, default=1, help="number of copies for each adversaries")
+
     # Core training parameters
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate for Adam optimizer")
     parser.add_argument("--gamma", type=float, default=0.95, help="discount factor")
@@ -78,17 +82,23 @@ def make_env(scenario_name, arglist, benchmark=False):
 def get_trainers(env, num_adversaries, obs_shape_n, arglist):
     trainers = []
     model = mlp_model
-    trainer = MADDPGAgentTrainer
+    bad_trainer = good_trainer = MADDPGAgentTrainer
     for i in range(num_adversaries):
-        print("{} bad agents".format(i))
+        print("Agent {} is bad agent".format(i))
         policy_name = arglist.bad_policy
-        trainers.append(trainer(
+        if arglist.bad_ensemble > 1:
+            bad_trainer = functools.partial(MADDPGAgentTrainerEnsembleWrapper,
+                num_copies=arglist.bad_ensemble)
+        trainers.append(bad_trainer(
             "agent_%d" % i, model, obs_shape_n, env.action_space, i, arglist,
             policy_name == 'ddpg', policy_name, policy_name == 'mmmaddpg'))
     for i in range(num_adversaries, env.n):
-        print("{} good agents".format(i))
+        print("Agent {} is good agent".format(i))
         policy_name = arglist.good_policy
-        trainers.append(trainer(
+        if arglist.good_ensemble > 1:
+            good_trainer = functools.partial(MADDPGAgentTrainerEnsembleWrapper,
+                num_copies=arglist.good_ensemble)
+        trainers.append(good_trainer(
             "agent_%d" % i, model, obs_shape_n, env.action_space, i, arglist,
             policy_name == 'ddpg', policy_name, policy_name == 'mmmaddpg'))
     return trainers
@@ -104,7 +114,7 @@ def train(arglist):
         obs_shape_n = [env.observation_space[i].shape for i in range(env.n)]
         num_adversaries = min(env.n, arglist.num_adversaries)
         trainers = get_trainers(env, num_adversaries, obs_shape_n, arglist)
-        print('Using good policy {} and bad policy {} with {} adversaries'.format(arglist.good_policy, arglist.bad_policy, num_adversaries))
+        print('Using bad policy {} and good policy {} with {} adversaries'.format(arglist.bad_policy, arglist.good_policy, num_adversaries))
 
         # Initialize
         U.initialize()
@@ -141,8 +151,11 @@ def train(arglist):
 
         print('Starting iterations...')
         while True:
+            for i in trainers:
+                if isinstance(i, MADDPGAgentTrainerEnsembleWrapper):
+                    i.sample_trainer()
             # get action
-            action_n = [agent.action(obs) for agent, obs in zip(trainers,obs_n)]
+            action_n = [agent.action(obs) for agent, obs in zip(trainers, obs_n)]
             # environment step
             new_obs_n, rew_n, done_n, info_n = env.step([mysoftmax(elem) for elem in action_n])
             episode_step += 1
