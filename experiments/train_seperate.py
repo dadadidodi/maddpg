@@ -163,7 +163,7 @@ def train(arglist):
             terminal = (episode_step >= arglist.max_episode_len)
             # collect experience
             for i, agent in enumerate(trainers):
-                agent.experience(obs_n[i], action_n[i], rew_n[i], new_obs_n[i], done_n[i], terminal)
+                agent.experience(obs_n, action_n, rew_n, new_obs_n, done_n, terminal)
             obs_n = new_obs_n
 
             for i, rew in enumerate(rew_n):
