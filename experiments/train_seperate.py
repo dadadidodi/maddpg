@@ -133,7 +133,7 @@ def train(arglist):
         final_ep_rewards = []  # sum of rewards for training curve
         final_ep_ag_rewards = []  # agent rewards for training curve
         agent_info = [[[]]]  # placeholder for benchmarking info
-        saver = tf.train.Saver()
+        saver = tf.train.Saver(max_to_keep=None)
         obs_n = env.reset()
         episode_step = 0
         train_step = 0
