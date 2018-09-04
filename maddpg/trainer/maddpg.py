@@ -33,7 +33,6 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, adve
         # set up placeholders
         obs_ph_n = make_obs_ph_n
         act_ph_n = [act_pdtype_n[i].sample_placeholder([None], name="action"+str(i)) for i in range(len(act_space_n))]
-
         p_input = obs_ph_n[p_index]
 
         p = p_func(p_input, int(act_pdtype_n[p_index].param_shape()[0]), scope="p_func", num_units=num_units)
@@ -65,7 +64,8 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, adve
             raw_perturb = tf.gradients(pg_loss, act_input_logits_n)
             perturb = [tf.stop_gradient(tf.nn.l2_normalize(elem, axis = 1)) for elem in raw_perturb]
             perturb = [perturb[i] * adv_rate[i] for i in range(num_agents)]
-            new_act_input_logits_n = [perturb[i] + act_input_logits_n[i] if i != p_index
+            norm = [tf.norm(elem, axis = 1) for elem in act_input_logits_n]
+            new_act_input_logits_n = [perturb[i]*norm[i] + act_input_logits_n[i] if i != p_index
                     else act_input_logits_n[i] for i in range(len(act_input_logits_n))]
             new_act_n = [U.softmax(lg, axis = -1) for lg in new_act_input_logits_n]
             adv_q_input = tf.concat(obs_ph_n + new_act_n, 1)
@@ -134,7 +134,9 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, adversarial,
             pg_loss = -tf.reduce_mean(target_q)
             raw_perturb = tf.gradients(pg_loss, act_ph_n)
             perturb = [adv_eps * tf.stop_gradient(tf.nn.l2_normalize(elem, axis = 1)) for elem in raw_perturb]
-            new_act_logits_n = [perturb[i] + act_ph_n[i] if i != q_index
+            act_ph_n_cp = act_ph_n + []
+            norm = [tf.norm(elem, axis = 1) for elem in act_ph_n_cp]
+            new_act_logits_n = [perturb[i]*norm[i] + act_ph_n[i] if i != q_index
                     else act_ph_n[i] for i in range(len(act_ph_n))]
             new_act_n = [U.softmax(lg, axis = -1) for lg in new_act_logits_n]
             adv_q_input = tf.concat(obs_ph_n + new_act_n, 1)
