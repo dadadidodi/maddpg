@@ -208,9 +208,10 @@ class MADDPGAgentTrainer(AgentTrainer):
     def action(self, obs):
         return self.act(obs[None])[0]
 
-    def experience(self, obs, act, rew, new_obs, done, terminal):
+    def experience(self, obs_n, act_n, rew_n, new_obs_n, done_n, terminal):
         # Store transition in the replay buffer.
-        self.replay_buffer.add(obs, act, rew, new_obs, float(done))
+        done_n = list(map(lambda x: float(x), done_n))
+        self.replay_buffer.add(obs_n, act_n, rew_n, new_obs_n, done_n)
 
     def preupdate(self):
         self.replay_sample_index = None
@@ -222,17 +223,12 @@ class MADDPGAgentTrainer(AgentTrainer):
             return
 
         self.replay_sample_index = self.replay_buffer.make_index(self.args.batch_size)
-        # collect replay sample from all agents
-        obs_n = []
-        obs_next_n = []
-        act_n = []
+        # collect replay sample from all agents        
         index = self.replay_sample_index
-        for i in range(self.n):
-            obs, act, rew, obs_next, done = agents[i].replay_buffer.sample_index(index)
-            obs_n.append(obs)
-            obs_next_n.append(obs_next)
-            act_n.append(act)
-        obs, act, rew, obs_next, done = self.replay_buffer.sample_index(index)
+        obs_n, act_n, rew_n, obs_next_n, done_n = self.replay_buffer.sample_index(index)
+        obs_n, act_n, obs_next_n = obs_n.tolist(), act_n.tolist(), obs_next_n.tolist()
+        rew = rew_n[self.agent_index]
+        done = done_n[self.agent_index]
 
         # train q network
         num_sample = 1
@@ -274,8 +270,8 @@ class MADDPGAgentTrainerEnsembleWrapper:
     def action(self, obs):
         return self.current.action(obs)
 
-    def experience(self, obs, act, rew, new_obs, done, terminal):
-        self.current.experience(obs, act, rew, new_obs, done, terminal)
+    def experience(self, obs_n, act_n, rew_n, new_obs_n, done_n, terminal):
+        self.current.experience(obs_n, act_n, rew_n, new_obs_n, done_n, terminal)
 
     def preupdate(self):
         self.current.preupdate()
