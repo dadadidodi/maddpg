@@ -46,13 +46,13 @@ cmd += ' --num-adversaries {}'.format(num_adv)
 cmd += ' --save-dir ./{} --exp-name {}'.format(exp_name, exp_name)
 
 cmd += ' --bad-policy {}'.format(policy_name[args.bad_method])
-if args.bad_load is not None:
+if args.load_bad is not None:
     cmd += ' --load-bad {}'.format(args.load_bad)
 if args.bad_method.endswith('ens'):
     cmd += ' --bad-ensemble {}'.format(num_ens)
 
 cmd += ' --good-policy {}'.format(policy_name[args.good_method])
-if args.good_load is not None:
+if args.load_good is not None:
     cmd += ' --load-good {}'.format(args.load_good)
 if args.good_method.endswith('ens'):
     cmd += ' --good-ensemble {}'.format(num_ens)
