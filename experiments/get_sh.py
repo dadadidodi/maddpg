@@ -7,10 +7,10 @@ parser = argparse.ArgumentParser("Reinforcement Learning experiments for multiag
 
 parser.add_argument("-s", "--scenario", choices=['adv', 'crypto', 'push', 'tag'], help="choices of scenario")
 parser.add_argument("-bm", "--bad-method", default="ma", choices=['ma', 'm3', 'ma_ens', 'm3_ens'], help="method")
-parser.add_argument("-bl", "--bad-load", type=str, default=None)
+parser.add_argument("-lb", "--load-bad", type=str, default=None)
 
 parser.add_argument("-gm", "--good-method", default="ma", choices=['ma', 'm3', 'ma_ens', 'm3_ens'], help="method")
-parser.add_argument("-gl", "--good-load", type=str, default=None)
+parser.add_argument("-lg", "--load-good", type=str, default=None)
 
 parser.add_argument("-ex", "--extra_info", type=str, default=None)
 parser.add_argument("-t", "--test", action='store_true')
@@ -47,17 +47,17 @@ cmd += ' --save-dir ./{} --exp-name {}'.format(exp_name, exp_name)
 
 cmd += ' --bad-policy {}'.format(policy_name[args.bad_method])
 if args.bad_load is not None:
-    cmd += ' --bad-load {}'.format(args.bad_load)
+    cmd += ' --load-bad {}'.format(args.load_bad)
 if args.bad_method.endswith('ens'):
     cmd += ' --bad-ensemble {}'.format(num_ens)
 
 cmd += ' --good-policy {}'.format(policy_name[args.good_method])
 if args.good_load is not None:
-    cmd += ' --good-load {}'.format(args.good_load)
+    cmd += ' --load-good {}'.format(args.load_good)
 if args.good_method.endswith('ens'):
     cmd += ' --good-ensemble {}'.format(num_ens)
 
-cmd += ' --save-rate 2500 --num-episodes 10000'
+cmd += ' --save-rate 10000 --num-episodes 10000'
 
 if args.test:
     cmd += ' --test'
