@@ -45,9 +45,8 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, adve
         act_sample = act_pd.sample()
         p_reg = tf.reduce_mean(tf.square(act_pd.flatparam()))
 
-        act_input_logits_n = act_ph_n + []
-        act_input_logits_n[p_index] = act_pd.sample()
-        act_input_n = [U.softmax(lg, axis=-1) for lg in act_input_logits_n]
+        act_input_n = act_ph_n + []
+        act_input_n[p_index] = act_pd.sample()
 
         q_input = tf.concat(obs_ph_n + act_input_n, 1)
         if local_q_func:
@@ -56,18 +55,18 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, adve
         pg_loss = -tf.reduce_mean(q)
 
         if adversarial:
-            num_agents = len(act_input_logits_n)
+            num_agents = len(act_input_n)
             if p_index < num_adversaries:
                 adv_rate = [adv_eps_s *(i < num_adversaries) + adv_eps * (i >= num_adversaries) for i in range(num_agents)]
             else:
                 adv_rate = [adv_eps_s *(i >= num_adversaries) + adv_eps * (i < num_adversaries) for i in range(num_agents)]
             print("      adv rate for p_index : ", p_index, adv_rate)
-            raw_perturb = tf.gradients(pg_loss, act_input_logits_n)
+            raw_perturb = tf.gradients(pg_loss, act_input_n)
             perturb = [tf.stop_gradient(tf.nn.l2_normalize(elem, axis = 1)) for elem in raw_perturb]
             perturb = [perturb[i] * adv_rate[i] for i in range(num_agents)]
-            new_act_input_logits_n = [perturb[i] + act_input_logits_n[i] if i != p_index
-                    else act_input_logits_n[i] for i in range(len(act_input_logits_n))]
-            new_act_n = [U.softmax(lg, axis = -1) for lg in new_act_input_logits_n]
+            new_act_n = [perturb[i] + act_input_n[i] if i != p_index
+                    else act_input_n[i] for i in range(len(act_input_n))]
+            
             adv_q_input = tf.concat(obs_ph_n + new_act_n, 1)
             adv_q = q_func(adv_q_input, 1, scope = "q_func", reuse=True, num_units=num_units)[:,0]
             pg_loss = -tf.reduce_mean(q)
@@ -101,10 +100,9 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, adversarial,
         act_ph_n = [act_pdtype_n[i].sample_placeholder([None], name="action"+str(i)) for i in range(len(act_space_n))]
         target_ph = tf.placeholder(tf.float32, [None], name="target")
 
-        act_input_n = [U.softmax(lg, axis=-1) for lg in act_ph_n]
-        q_input = tf.concat(obs_ph_n + act_input_n, 1)
+        q_input = tf.concat(obs_ph_n + act_ph_n, 1)
         if local_q_func:
-            q_input = tf.concat([obs_ph_n[q_index], act_input_n[q_index]], 1)
+            q_input = tf.concat([obs_ph_n[q_index], act_ph_n[q_index]], 1)
         q = q_func(q_input, 1, scope="q_func", num_units=num_units)[:,0]
         q_func_vars = U.scope_vars(U.absolute_scope_name("q_func"))
 
@@ -134,9 +132,8 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, adversarial,
             pg_loss = -tf.reduce_mean(target_q)
             raw_perturb = tf.gradients(pg_loss, act_ph_n)
             perturb = [adv_eps * tf.stop_gradient(tf.nn.l2_normalize(elem, axis = 1)) for elem in raw_perturb]
-            new_act_logits_n = [perturb[i] + act_ph_n[i] if i != q_index
+            new_act_n = [perturb[i] + act_ph_n[i] if i != q_index
                     else act_ph_n[i] for i in range(len(act_ph_n))]
-            new_act_n = [U.softmax(lg, axis = -1) for lg in new_act_logits_n]
             adv_q_input = tf.concat(obs_ph_n + new_act_n, 1)
             target_q = q_func(adv_q_input, 1, scope ='target_q_func', reuse=True, num_units=num_units)[:,0]
 
