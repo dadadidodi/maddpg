@@ -69,6 +69,7 @@ def get_cmd(bad_method, load_bad, good_method, load_good, bad_extra_info=None, g
 def main():
     methods = ['ma', 'm3', 'ma_ens', 'm3_ens']
     assert len(args.locations) == len(methods)
+    all_cmd = ''
 
     for bm, lb in zip(methods, args.locations):
         for gm, lg in zip(methods, args.locations):
@@ -77,7 +78,12 @@ def main():
                 bad_extra_info = args.extra_info
             if gm == 'm3_ens':
                 good_extra_info = args.extra_info
-            print(get_cmd(bm, lb, gm, lg, bad_extra_info, good_extra_info))
+            cmd = get_cmd(bm, lb, gm, lg, bad_extra_info, good_extra_info)
+            print(cmd)
+            if all_cmd != '':
+                all_cmd += ' & '
+            all_cmd += cmd
+    print(all_cmd)
 
 if __name__  == "__main__":
     main()
